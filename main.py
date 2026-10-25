@@ -25,10 +25,52 @@ platforms = [
     Rect(620, 180, 150, 20),
 ]
 
-hero = Rect(50, 380, 30, 50)
+hero = Rect(50, 300, 100, 100)
 velocity_y = 0
 on_ground = False
 
+class AnimatedSprite:
+    def __init__(self, frames, frame_duration=0.15):
+        self.frames = frames
+        self.frame_duration = frame_duration
+        self.timer = 0
+        self.index = 0
+
+    def update(self, dt):
+        self.timer += dt
+        if self.timer >= self.frame_duration:
+            self.timer = 0
+            self.index = (self.index + 1) % len(self.frames)
+
+    def current_frame(self):
+        return self.frames[self.index]
+
+hero_anim = AnimatedSprite(["hero_idle1", "hero_idle2", "hero_idle3", "hero_idle4", "hero_idle5", "hero_idle6"], frame_duration=0.2)
+hero_sprite = Actor("hero_idle1")
+
+class Enemy:
+    def __init__(self, x, y, left_limit, right_limit):
+        self.rect = Rect(x, y, 50, 50)
+        self.left_limit = left_limit
+        self.right_limit = right_limit
+        self.direction = 1
+        self.speed = 2
+
+    def update(self):
+        self.rect.x += self.speed * self.direction
+        if self.rect.right >= self.right_limit or self.rect.left <= self.left_limit:
+            self.direction *= -1
+
+enemies = [Enemy(450, 390, 400, 700)]
+
+
+def update(dt):
+    global game_state
+    if game_state == "playing":
+        for enemy in enemies:
+            enemy.update()
+        hero_anim.update(dt)
+        update_hero()
 
 def draw_button(rect, label):
     screen.draw.filled_rect(rect, "darkslateblue")
@@ -47,8 +89,11 @@ def draw():
         for platform in platforms:
             screen.draw.filled_rect(platform, "saddlebrown")
         # comentario: trocar este retangulo por sprite animado do heroi
-        screen.draw.filled_rect(hero, "red")
-        # comentario: desenhar os inimigos
+        hero_sprite.image = hero_anim.current_frame()
+        hero_sprite.midbottom = hero.midbottom
+        hero_sprite.draw()
+        for enemy in enemies:
+            screen.draw.filled_rect(enemy.rect, "purple")
 
 
 def on_mouse_down(pos):
@@ -67,7 +112,7 @@ def on_mouse_down(pos):
 
 def reset_hero():
     global velocity_y
-    hero.topleft = (50, 380)
+    hero.topleft = (50, 300)
     velocity_y = 0
 
 
@@ -99,11 +144,13 @@ def update_hero():
         reset_hero()
 
 
-def update():
+def update(dt):
     global game_state
     if game_state == "playing":
+        hero_anim.update(dt)
         update_hero()
-        # comentario: atualizar inimigos e checar colisao com o heroi
+        for enemy in enemies:
+            enemy.update()
         if keyboard.escape:
             game_state = "menu"
 
