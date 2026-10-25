@@ -52,12 +52,12 @@ hero_sprite = Actor("hero_idle1")
 
 class Enemy:
     def __init__(self, x, y, left_limit, right_limit):
-        self.rect = Rect(x, y, 32, 32)
+        self.rect = Rect(x, y, 50, 50)
         self.left_limit = left_limit
         self.right_limit = right_limit
         self.direction = 1
         self.speed = 2
-        self.anim = AnimatedSprite(["enemy_walk1", "enemy_walk2", "enemy_walk3", "enemy_walk4", "enemy_walk5", "enemy_walk6"], frame_duration=0.2)
+        self.anim = AnimatedSprite(["enemy_walk1", "enemy_walk2", "enemy_walk3"], frame_duration=0.2)
         self.sprite = Actor("enemy_walk1")
 
     def update(self, dt):
@@ -71,10 +71,11 @@ class Enemy:
         self.sprite.midbottom = self.rect.midbottom
         self.sprite.draw()
 
-
-
-enemies = [Enemy(450, 390, 400, 700)]
-
+enemies = [
+    Enemy(450, 390, 400, 700),   # no chao
+    Enemy(160, 290, 150, 300),   # na plataforma de y=340
+    Enemy(410, 210, 400, 550),   # na plataforma de y=260
+]
 
 def update(dt):
     global game_state
