@@ -55,11 +55,21 @@ class Enemy:
         self.right_limit = right_limit
         self.direction = 1
         self.speed = 2
+        self.anim = AnimatedSprite(["enemy_walk1", "enemy_walk2", "enemy_walk3", "enemy_walk4", "enemy_walk5", "enemy_walk6"], frame_duration=0.2)
+        self.sprite = Actor("enemy_walk1")
 
-    def update(self):
+    def update(self, dt):
+        self.anim.update(dt)
         self.rect.x += self.speed * self.direction
         if self.rect.right >= self.right_limit or self.rect.left <= self.left_limit:
             self.direction *= -1
+
+    def draw(self):
+        self.sprite.image = self.anim.current_frame()
+        self.sprite.midbottom = self.rect.midbottom
+        self.sprite.draw()
+
+
 
 enemies = [Enemy(450, 390, 400, 700)]
 
@@ -67,10 +77,14 @@ enemies = [Enemy(450, 390, 400, 700)]
 def update(dt):
     global game_state
     if game_state == "playing":
-        for enemy in enemies:
-            enemy.update()
         hero_anim.update(dt)
         update_hero()
+        for enemy in enemies:
+            enemy.update(dt)
+            if hero.colliderect(enemy.rect):
+                reset_hero()
+        if keyboard.escape:
+            game_state = "menu"
 
 def draw_button(rect, label):
     screen.draw.filled_rect(rect, "darkslateblue")
@@ -93,7 +107,7 @@ def draw():
         hero_sprite.midbottom = hero.midbottom
         hero_sprite.draw()
         for enemy in enemies:
-            screen.draw.filled_rect(enemy.rect, "purple")
+            enemy.draw()
 
 
 def on_mouse_down(pos):
@@ -150,7 +164,9 @@ def update(dt):
         hero_anim.update(dt)
         update_hero()
         for enemy in enemies:
-            enemy.update()
+            enemy.update(dt)
+            if hero.colliderect(enemy.rect):
+                reset_hero()
         if keyboard.escape:
             game_state = "menu"
 
