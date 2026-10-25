@@ -46,6 +46,8 @@ class AnimatedSprite:
         return self.frames[self.index]
 
 hero_anim = AnimatedSprite(["hero_idle1", "hero_idle2", "hero_idle3", "hero_idle4"], frame_duration=0.2)
+hero_walk_anim = AnimatedSprite(["hero_walk1", "hero_walk2", "hero_walk3"], frame_duration=0.15)
+moving = False
 hero_sprite = Actor("hero_idle1")
 
 class Enemy:
@@ -103,7 +105,10 @@ def draw():
         for platform in platforms:
             screen.draw.filled_rect(platform, "saddlebrown")
         # comentario: trocar este retangulo por sprite animado do heroi
-        hero_sprite.image = hero_anim.current_frame()
+        if moving:
+            hero_sprite.image = hero_walk_anim.current_frame()
+        else:
+            hero_sprite.image = hero_anim.current_frame()
         hero_sprite.midbottom = hero.midbottom
         hero_sprite.draw()
         for enemy in enemies:
@@ -131,12 +136,15 @@ def reset_hero():
 
 
 def update_hero():
-    global velocity_y, on_ground
+    global velocity_y, on_ground, moving
 
+    moving = False
     if keyboard.left:
         hero.x -= MOVE_SPEED
+        moving = True
     if keyboard.right:
         hero.x += MOVE_SPEED
+        moving = True
     hero.x = max(0, min(WIDTH - hero.width, hero.x))
 
     if (keyboard.space or keyboard.up) and on_ground:
