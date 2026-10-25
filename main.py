@@ -104,7 +104,7 @@ def draw():
     else:
         for platform in platforms:
             screen.draw.filled_rect(platform, "saddlebrown")
-        # comentario: trocar este retangulo por sprite animado do heroi
+        
         if moving:
             hero_sprite.image = hero_walk_anim.current_frame()
         else:
@@ -122,9 +122,15 @@ def on_mouse_down(pos):
     if buttons["start"].collidepoint(pos):
         game_state = "playing"
         reset_hero()
+        if sound_on:
+            music.play("background")
+            music.set_volume(0.5)
     elif buttons["sound"].collidepoint(pos):
         sound_on = not sound_on
-        # comentario: ligar/desligar a musica de fundo aqui
+        if sound_on:
+            music.play("background")
+        else:
+            music.stop()
     elif buttons["exit"].collidepoint(pos):
         exit()
 
@@ -149,6 +155,8 @@ def update_hero():
 
     if (keyboard.space or keyboard.up) and on_ground:
         velocity_y = -JUMP_FORCE
+        if sound_on:
+            sounds.jump.play()
 
     velocity_y += GRAVITY
     step = round(velocity_y)
