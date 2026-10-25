@@ -25,7 +25,7 @@ platforms = [
     Rect(620, 180, 150, 20),
 ]
 
-hero = Rect(50, 300, 100, 100)
+hero = Rect(50, 300, 32, 32)
 velocity_y = 0
 on_ground = False
 
@@ -45,12 +45,12 @@ class AnimatedSprite:
     def current_frame(self):
         return self.frames[self.index]
 
-hero_anim = AnimatedSprite(["hero_idle1", "hero_idle2", "hero_idle3", "hero_idle4", "hero_idle5", "hero_idle6"], frame_duration=0.2)
+hero_anim = AnimatedSprite(["hero_idle1", "hero_idle2", "hero_idle3", "hero_idle4"], frame_duration=0.2)
 hero_sprite = Actor("hero_idle1")
 
 class Enemy:
     def __init__(self, x, y, left_limit, right_limit):
-        self.rect = Rect(x, y, 50, 50)
+        self.rect = Rect(x, y, 32, 32)
         self.left_limit = left_limit
         self.right_limit = right_limit
         self.direction = 1
