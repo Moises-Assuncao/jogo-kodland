@@ -3,15 +3,22 @@ from pygame import Rect
 
 WIDTH = 800
 HEIGHT = 480
-TITLE = "As aventuras do heroi"
+TITLE = "Meu Platformer"
 
 GRAVITY = 0.6
 JUMP_FORCE = 13
 MOVE_SPEED = 4
 
-game_state = "menu"  # "menu" ou "playing"
+MAX_LIVES = 3
+INVULNERABLE_TIME = 1.5
+
+game_state = "menu"  # "menu" or "playing"
 sound_on = True
 
+game_over_buttons = {
+    "restart": Rect(300, 220, 200, 50),
+    "menu": Rect(300, 290, 200, 50),
+}
 
 buttons = {
     "start": Rect(300, 150, 200, 50),
@@ -19,9 +26,8 @@ buttons = {
     "exit": Rect(300, 290, 200, 50),
 }
 
-
 platforms = [
-    Rect(0, 440, 800, 40),     # chao
+    Rect(0, 440, 800, 40),  # ground
     Rect(150, 340, 150, 20),
     Rect(400, 260, 150, 20),
     Rect(620, 180, 150, 20),
@@ -61,12 +67,27 @@ class Hero:
             frame_duration=0.15,
         )
         self.sprite = Actor("hero_idle1")
+        self.lives = MAX_LIVES
+        self.invulnerable_timer = 0
 
     def reset(self):
         self.rect.topleft = self.start_pos
         self.velocity_y = 0
 
+    def new_game(self):
+        self.lives = MAX_LIVES
+        self.invulnerable_timer = 0
+        self.reset()
+
+    def take_hit(self):
+        if self.invulnerable_timer > 0:
+            return
+        self.lives -= 1
+        self.invulnerable_timer = INVULNERABLE_TIME
+
     def update(self, dt):
+        if self.invulnerable_timer > 0:
+            self.invulnerable_timer -= dt
         self.idle_anim.update(dt)
         self.walk_anim.update(dt)
 
@@ -91,15 +112,19 @@ class Hero:
         self.on_ground = False
         for platform in platforms:
             landed_from_above = self.rect.bottom - step <= platform.top
-            if self.rect.colliderect(platform) and step > 0 and landed_from_above:
+            touching = self.rect.colliderect(platform)
+            if touching and step > 0 and landed_from_above:
                 self.rect.bottom = platform.top
                 self.velocity_y = 0
                 self.on_ground = True
 
-        if self.rect.top > HEIGHT:
+        if self.rect.top > HEIGHT:  # fell off the screen
+            self.lives -= 1
             self.reset()
 
     def draw(self):
+        if self.invulnerable_timer > 0 and int(self.invulnerable_timer * 10) % 2:
+            return
         if self.moving:
             self.sprite.image = self.walk_anim.current_frame()
         else:
@@ -116,13 +141,18 @@ class Enemy:
         self.right_limit = right_limit
         self.direction = 1
         self.speed = 2
-        self.anim = AnimatedSprite(["enemy_walk1", "enemy_walk2", "enemy_walk3"], frame_duration=0.2)
+        self.anim = AnimatedSprite(
+            ["enemy_walk1", "enemy_walk2", "enemy_walk3"],
+            frame_duration=0.2,
+        )
         self.sprite = Actor("enemy_walk1")
 
     def update(self, dt):
         self.anim.update(dt)
         self.rect.x += self.speed * self.direction
-        if self.rect.right >= self.right_limit or self.rect.left <= self.left_limit:
+        hit_right = self.rect.right >= self.right_limit
+        hit_left = self.rect.left <= self.left_limit
+        if hit_right or hit_left:
             self.direction *= -1
 
     def draw(self):
@@ -132,11 +162,10 @@ class Enemy:
 
 
 enemies = [
-    Enemy(450, 440, 400, 700),   # no chao
-    Enemy(160, 340, 150, 300),   # na plataforma de y=340
-    Enemy(410, 260, 400, 550),   # na plataforma de y=260
+    Enemy(450, 440, 400, 700),  # on the ground
+    Enemy(160, 340, 150, 300),  # on the platform at y=340
+    Enemy(410, 260, 400, 550),  # on the platform at y=260
 ]
-
 
 hero = Hero(50, 300)
 
@@ -144,6 +173,21 @@ hero = Hero(50, 300)
 def draw_button(rect, label):
     screen.draw.filled_rect(rect, "darkslateblue")
     screen.draw.text(label, center=rect.center, fontsize=28, color="white")
+
+def draw_lives():
+    for i in range(hero.lives):
+        screen.draw.filled_circle((30 + i * 35, 30), 12, "red")
+
+
+def draw_game_over():
+    screen.draw.text(
+        "GAME OVER",
+        center=(WIDTH // 2, 100),
+        fontsize=70,
+        color="red",
+    )
+    draw_button(game_over_buttons["restart"], "Reiniciar")
+    draw_button(game_over_buttons["menu"], "Voltar ao menu")
 
 
 def update(dt):
@@ -153,44 +197,65 @@ def update(dt):
         for enemy in enemies:
             enemy.update(dt)
             if hero.rect.colliderect(enemy.rect):
-                hero.reset()
-        if keyboard.escape:
+                hero.take_hit()
+        if hero.lives <= 0:
+            music.stop()
+            game_state = "game_over"
+        elif keyboard.escape:
             game_state = "menu"
-
 
 def draw():
     screen.fill("skyblue")
+    
     if game_state == "menu":
-        screen.draw.text("AS AVENTURAS DO HEROI", center=(WIDTH // 2, 80), fontsize=60)
+        screen.draw.text(
+            "MEU PLATFORMER",
+            center=(WIDTH // 2, 80),
+            fontsize=60,
+        )
         draw_button(buttons["start"], "Comecar o jogo")
         sound_label = "Som: ligado" if sound_on else "Som: desligado"
         draw_button(buttons["sound"], sound_label)
         draw_button(buttons["exit"], "Sair")
+    elif game_state == "game_over":
+                draw_game_over()
     else:
         for platform in platforms:
             screen.draw.filled_rect(platform, "saddlebrown")
         hero.draw()
         for enemy in enemies:
             enemy.draw()
+        draw_lives()
 
 
 def on_mouse_down(pos):
     global game_state, sound_on
-    if game_state != "menu":
-        return
-    if buttons["start"].collidepoint(pos):
-        game_state = "playing"
-        hero.reset()
-        if sound_on:
-            music.play("background")
-            music.set_volume(0.5)
-    elif buttons["sound"].collidepoint(pos):
-        sound_on = not sound_on
-        if sound_on:
-            music.play("background")
-        else:
-            music.stop()
-    elif buttons["exit"].collidepoint(pos):
-        exit()
+    if game_state == "menu":
+        if buttons["start"].collidepoint(pos):
+            start_game()
+        elif buttons["sound"].collidepoint(pos):
+            sound_on = not sound_on
+            if sound_on:
+                music.play("background")
+            else:
+                music.stop()
+        elif buttons["exit"].collidepoint(pos):
+            exit()
+    elif game_state == "game_over":
+        if game_over_buttons["restart"].collidepoint(pos):
+            start_game()
+        elif game_over_buttons["menu"].collidepoint(pos):
+            game_state = "menu"
+
+
+def start_game():
+    global game_state
+    game_state = "playing"
+    hero.new_game()
+    if sound_on:
+        music.play("background")
+        music.set_volume(0.5)
+    
+
 
 pgzrun.go()
