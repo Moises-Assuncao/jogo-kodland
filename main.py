@@ -4,7 +4,7 @@ from pygame import Rect
 WIDTH = 800
 HEIGHT = 480
 LEVEL_WIDTH = 2400
-TITLE = "Meu Platformer"
+TITLE = "As aventuras do heroi"
 
 GRAVITY = 0.6
 JUMP_FORCE = 13
@@ -53,8 +53,9 @@ class AnimatedSprite:
             self.timer = 0
             self.index = (self.index + 1) % len(self.frames)
 
-    def current_frame(self):
-        return self.frames[self.index]
+    def current_frame(self, flipped=False):
+        name = self.frames[self.index]
+        return name + "_left" if flipped else name
 
 
 class Hero:
@@ -75,10 +76,13 @@ class Hero:
         self.sprite = Actor("hero_idle1")
         self.lives = MAX_LIVES
         self.invulnerable_timer = 0
+        self.facing_left = False
+        self.prev_bottom = self.rect.bottom
 
     def reset(self):
         self.rect.topleft = self.start_pos
         self.velocity_y = 0
+        self.prev_bottom = self.rect.bottom
 
     def new_game(self):
         self.lives = MAX_LIVES
@@ -92,17 +96,15 @@ class Hero:
         self.invulnerable_timer = INVULNERABLE_TIME
         
     def stomps(self, enemy):
-        previous_bottom = self.rect.bottom - round(self.velocity_y)
-        return self.velocity_y > 0 and previous_bottom <= enemy.rect.top
+        descending = self.rect.bottom > self.prev_bottom
+        was_above = self.prev_bottom <= enemy.rect.top
+        return descending and was_above
 
     def bounce(self):
         self.velocity_y = -JUMP_FORCE * 0.6
-        if self.invulnerable_timer > 0:
-            return
-        self.lives -= 1
-        self.invulnerable_timer = INVULNERABLE_TIME
 
     def update(self, dt):
+        self.prev_bottom = self.rect.bottom
         if self.invulnerable_timer > 0:
             self.invulnerable_timer -= dt
         self.idle_anim.update(dt)
@@ -112,9 +114,11 @@ class Hero:
         if keyboard.left:
             self.rect.x -= MOVE_SPEED
             self.moving = True
+            self.facing_left = True
         if keyboard.right:
             self.rect.x += MOVE_SPEED
             self.moving = True
+            self.facing_left = False
         self.rect.x = max(0, min(LEVEL_WIDTH - self.rect.width, self.rect.x))
 
         if (keyboard.space or keyboard.up) and self.on_ground:
@@ -144,9 +148,10 @@ class Hero:
         if self.invulnerable_timer > 0 and blinking:
             return
         if self.moving:
-            self.sprite.image = self.walk_anim.current_frame()
+            anim = self.walk_anim
         else:
-            self.sprite.image = self.idle_anim.current_frame()
+            anim = self.idle_anim
+        self.sprite.image = anim.current_frame(self.facing_left)
         screen_x = self.rect.centerx - camera_x
         self.sprite.midbottom = (screen_x, self.rect.bottom)
         self.sprite.draw()
@@ -176,7 +181,7 @@ class Enemy:
             self.direction *= -1
 
     def draw(self):
-        self.sprite.image = self.anim.current_frame()
+        self.sprite.image = self.anim.current_frame(self.direction < 0)
         screen_x = self.rect.centerx - camera_x
         self.sprite.midbottom = (screen_x, self.rect.bottom)
         self.sprite.draw()
@@ -252,12 +257,13 @@ def update(dt):
         update_camera()
         for enemy in enemies:
             enemy.update(dt)
-            if hero.rect.colliderect(enemy.rect):
-                if hero.stomps(enemy):
-                    enemy.alive = False
-                    hero.bounce()
-                else:
-                    hero.take_hit()
+            if not hero.rect.colliderect(enemy.rect):
+                continue
+            if hero.stomps(enemy):
+                enemy.alive = False
+                hero.bounce()
+            else:
+                hero.take_hit()
         enemies[:] = [enemy for enemy in enemies if enemy.alive]
         if hero.lives <= 0:
             music.stop()
@@ -273,7 +279,7 @@ def draw():
     screen.fill("skyblue")
     if game_state == "menu":
         screen.draw.text(
-            "MEU PLATFORMER",
+            "AS AVENTURAS DO HEROI",
             center=(WIDTH // 2, 80),
             fontsize=60,
         )
