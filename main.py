@@ -111,17 +111,17 @@ class Hero:
         self.walk_anim.update(dt)
 
         self.moving = False
-        if keyboard.left:
+        if keyboard.left or keyboard.a:
             self.rect.x -= MOVE_SPEED
             self.moving = True
             self.facing_left = True
-        if keyboard.right:
+        if keyboard.right or keyboard.d:
             self.rect.x += MOVE_SPEED
             self.moving = True
             self.facing_left = False
         self.rect.x = max(0, min(LEVEL_WIDTH - self.rect.width, self.rect.x))
 
-        if (keyboard.space or keyboard.up) and self.on_ground:
+        if (keyboard.space or keyboard.up or keyboard.w) and self.on_ground:
             self.velocity_y = -JUMP_FORCE
             if sound_on:
                 sounds.jump.play()
@@ -261,6 +261,8 @@ def update(dt):
                 continue
             if hero.stomps(enemy):
                 enemy.alive = False
+                if sound_on:
+                    sounds.enemy_die.play()
                 hero.bounce()
             else:
                 hero.take_hit()
