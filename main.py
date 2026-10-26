@@ -273,6 +273,7 @@ def update(dt):
             game_state = "victory"
         elif keyboard.escape:
             game_state = "menu"
+            music.stop()
 
 
 def draw():
@@ -288,7 +289,8 @@ def draw():
         draw_button(buttons["sound"], sound_label)
         draw_button(buttons["exit"], "Sair")
     elif game_state == "game_over":
-                draw_game_over()
+        music.stop()
+        draw_game_over()
     elif game_state == "victory":
         draw_victory()
     else:
