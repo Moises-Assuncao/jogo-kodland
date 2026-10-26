@@ -3,6 +3,7 @@ from pygame import Rect
 
 WIDTH = 800
 HEIGHT = 480
+LEVEL_WIDTH = 2400
 TITLE = "Meu Platformer"
 
 GRAVITY = 0.6
@@ -27,10 +28,15 @@ buttons = {
 }
 
 platforms = [
-    Rect(0, 440, 800, 40),  # ground
+    Rect(0, 440, 900, 40),  # ground, first part
+    Rect(1020, 440, 1380, 40),  # ground, second part (pit before it)
     Rect(150, 340, 150, 20),
     Rect(400, 260, 150, 20),
     Rect(620, 180, 150, 20),
+    Rect(1250, 350, 150, 20),
+    Rect(1500, 270, 150, 20),
+    Rect(1750, 350, 150, 20),
+    Rect(2050, 340, 150, 20),
 ]
 
 
@@ -84,6 +90,17 @@ class Hero:
             return
         self.lives -= 1
         self.invulnerable_timer = INVULNERABLE_TIME
+        
+    def stomps(self, enemy):
+        previous_bottom = self.rect.bottom - round(self.velocity_y)
+        return self.velocity_y > 0 and previous_bottom <= enemy.rect.top
+
+    def bounce(self):
+        self.velocity_y = -JUMP_FORCE * 0.6
+        if self.invulnerable_timer > 0:
+            return
+        self.lives -= 1
+        self.invulnerable_timer = INVULNERABLE_TIME
 
     def update(self, dt):
         if self.invulnerable_timer > 0:
@@ -98,7 +115,7 @@ class Hero:
         if keyboard.right:
             self.rect.x += MOVE_SPEED
             self.moving = True
-        self.rect.x = max(0, min(WIDTH - self.rect.width, self.rect.x))
+        self.rect.x = max(0, min(LEVEL_WIDTH - self.rect.width, self.rect.x))
 
         if (keyboard.space or keyboard.up) and self.on_ground:
             self.velocity_y = -JUMP_FORCE
@@ -123,13 +140,15 @@ class Hero:
             self.reset()
 
     def draw(self):
-        if self.invulnerable_timer > 0 and int(self.invulnerable_timer * 10) % 2:
+        blinking = int(self.invulnerable_timer * 10) % 2
+        if self.invulnerable_timer > 0 and blinking:
             return
         if self.moving:
             self.sprite.image = self.walk_anim.current_frame()
         else:
             self.sprite.image = self.idle_anim.current_frame()
-        self.sprite.midbottom = self.rect.midbottom
+        screen_x = self.rect.centerx - camera_x
+        self.sprite.midbottom = (screen_x, self.rect.bottom)
         self.sprite.draw()
 
 
@@ -141,6 +160,7 @@ class Enemy:
         self.right_limit = right_limit
         self.direction = 1
         self.speed = 2
+        self.alive = True
         self.anim = AnimatedSprite(
             ["enemy_walk1", "enemy_walk2", "enemy_walk3"],
             frame_duration=0.2,
@@ -157,27 +177,62 @@ class Enemy:
 
     def draw(self):
         self.sprite.image = self.anim.current_frame()
-        self.sprite.midbottom = self.rect.midbottom
+        screen_x = self.rect.centerx - camera_x
+        self.sprite.midbottom = (screen_x, self.rect.bottom)
         self.sprite.draw()
 
 
-enemies = [
-    Enemy(450, 440, 400, 700),  # on the ground
-    Enemy(160, 340, 150, 300),  # on the platform at y=340
-    Enemy(410, 260, 400, 550),  # on the platform at y=260
-]
+def create_enemies():
+    return [
+        Enemy(450, 440, 400, 700),  # on the ground
+        Enemy(160, 340, 150, 300),  # on the platform at y=340
+        Enemy(410, 260, 400, 550),  # on the platform at y=260
+        Enemy(1150, 440, 1050, 1300),  # on the ground, second part
+        Enemy(1270, 350, 1250, 1400),  # on the platform at y=350
+        Enemy(1520, 270, 1500, 1650),  # on the platform at y=270
+        Enemy(1900, 440, 1800, 2100),  # on the ground, second part
+    ]
+
+
+enemies = create_enemies()
+
 
 hero = Hero(50, 300)
+
+
+camera_x = 0
+
+
+def update_camera():
+    global camera_x
+    camera_x = hero.rect.centerx - WIDTH // 2
+    camera_x = max(0, min(LEVEL_WIDTH - WIDTH, camera_x))
 
 
 def draw_button(rect, label):
     screen.draw.filled_rect(rect, "darkslateblue")
     screen.draw.text(label, center=rect.center, fontsize=28, color="white")
 
+
 def draw_lives():
     for i in range(hero.lives):
         screen.draw.filled_circle((30 + i * 35, 30), 12, "red")
 
+
+def draw_victory():
+    screen.draw.text(
+        "VOCE VENCEU!",
+        center=(WIDTH // 2, 100),
+        fontsize=70,
+        color="gold",
+    )
+    screen.draw.text(
+        "Voce derrotou todos os inimigos!",
+        center=(WIDTH // 2, 160),
+        fontsize=30,
+    )
+    draw_button(game_over_buttons["restart"], "Jogar de novo")
+    draw_button(game_over_buttons["menu"], "Voltar ao menu")
 
 def draw_game_over():
     screen.draw.text(
@@ -194,19 +249,28 @@ def update(dt):
     global game_state
     if game_state == "playing":
         hero.update(dt)
+        update_camera()
         for enemy in enemies:
             enemy.update(dt)
             if hero.rect.colliderect(enemy.rect):
-                hero.take_hit()
+                if hero.stomps(enemy):
+                    enemy.alive = False
+                    hero.bounce()
+                else:
+                    hero.take_hit()
+        enemies[:] = [enemy for enemy in enemies if enemy.alive]
         if hero.lives <= 0:
             music.stop()
             game_state = "game_over"
+        elif not enemies:
+            music.stop()
+            game_state = "victory"
         elif keyboard.escape:
             game_state = "menu"
 
+
 def draw():
     screen.fill("skyblue")
-    
     if game_state == "menu":
         screen.draw.text(
             "MEU PLATFORMER",
@@ -219,13 +283,23 @@ def draw():
         draw_button(buttons["exit"], "Sair")
     elif game_state == "game_over":
                 draw_game_over()
+    elif game_state == "victory":
+        draw_victory()
     else:
         for platform in platforms:
-            screen.draw.filled_rect(platform, "saddlebrown")
+            screen.draw.filled_rect(
+                platform.move(-camera_x, 0),
+                "saddlebrown",
+            )
         hero.draw()
         for enemy in enemies:
             enemy.draw()
         draw_lives()
+        screen.draw.text(
+            f"Inimigos: {len(enemies)}",
+            topright=(WIDTH - 20, 15),
+            fontsize=30,
+        )
 
 
 def on_mouse_down(pos):
@@ -241,7 +315,7 @@ def on_mouse_down(pos):
                 music.stop()
         elif buttons["exit"].collidepoint(pos):
             exit()
-    elif game_state == "game_over":
+    elif game_state in ("game_over", "victory"):
         if game_over_buttons["restart"].collidepoint(pos):
             start_game()
         elif game_over_buttons["menu"].collidepoint(pos):
@@ -249,13 +323,13 @@ def on_mouse_down(pos):
 
 
 def start_game():
-    global game_state
+    global game_state, enemies
     game_state = "playing"
+    enemies = create_enemies()
     hero.new_game()
     if sound_on:
         music.play("background")
         music.set_volume(0.5)
-    
 
 
 pgzrun.go()
